@@ -11,7 +11,11 @@ firmware overnight and forgot how to be cold." (73 characters).
 
 Gate (RULES.txt): /output/entry.txt must be UTF-8 text of 1 to 200
 characters, not only white space. The file is written with no trailing
-newline, so the judged text is exactly this line.
+Revision (v2, see DESIGN.md): after writing, verify the file's mode is
+exactly 0644 as well as its bytes — the grader collects /output as
+another user, so a file only its own user may read fails even though
+the program wrote it. The mode check turns that into a loud local
+failure instead of a silent grading failure.
 """
 
 import os
@@ -41,7 +45,11 @@ def main() -> None:
     with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
         f.write(LINE)
     os.chmod(OUTPUT_PATH, 0o644)
-    # Read-back check: the bytes on disk must be exactly the line.
+    # Read-back check: the bytes on disk must be exactly the line, and
+    # the mode must be 0644 so the grader (another user) can read it.
+    mode = os.stat(OUTPUT_PATH).st_mode & 0o777
+    if mode != 0o644:
+        raise ValueError(f"verification failed: mode is {mode:03o}, not 0644")
     with open(OUTPUT_PATH, "rb") as f:
         written = f.read()
     if written != LINE.encode("utf-8"):
